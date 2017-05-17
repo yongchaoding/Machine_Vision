@@ -21,6 +21,9 @@ void DrawFilledCircle(Mat img, Point center);
 void DrawLine(Mat img, Point start, Point end);
 void DrawPolygon(Mat img);
 
+void YAMLFILEWrite();
+void YAMLRead();
+
 #define ACCESS_WAY 1
 //访问图像中的像素
 void colorReduce_pointer(Mat InputImage, Mat OutputImage, int div);
@@ -43,22 +46,66 @@ int main(int argc, char** argv)
     //core advance
     
     //利用计时函数比较不同像素操作的效率问题（似乎结果有些问题）
-    double time0 = static_cast<double>(getTickCount());
-    colorReduce_pointer(srcImage, destImage, 100);
-    double time = ((double)getTickCount() - time0)/getTickFrequency();
-    cout << "The time used in pointer is " << time << "Second" <<endl;
+//    double time0 = static_cast<double>(getTickCount());
+//    colorReduce_pointer(srcImage, destImage, 100);
+//    double time = ((double)getTickCount() - time0)/getTickFrequency();
+//    cout << "The time used in pointer is " << time << "Second" <<endl;
+//    
+//    time0 = static_cast<double>(getTickCount());
+//    colorReduce_STL(srcImage, destImage, 100);
+//    time = ((double)getTickCount() - time0)/getTickFrequency();
+//    cout << "The time used in STL is " << time << "Second" <<endl;
+//    
+//    time0 = static_cast<double>(getTickCount());
+//    colorReduce_DynamicAddress(srcImage, destImage, 100);
+//    time = ((double)getTickCount() - time0)/getTickFrequency();
+//    cout << "The time used in DynamicAddress is " << time << "Second" <<endl;
     
-    time0 = static_cast<double>(getTickCount());
-    colorReduce_STL(srcImage, destImage, 100);
-    time = ((double)getTickCount() - time0)/getTickFrequency();
-    cout << "The time used in STL is " << time << "Second" <<endl;
+    //输入和输出XML和YAML文件
     
-    time0 = static_cast<double>(getTickCount());
-    colorReduce_DynamicAddress(srcImage, destImage, 100);
-    time = ((double)getTickCount() - time0)/getTickFrequency();
-    cout << "The time used in DynamicAddress is " << time << "Second" <<endl;
+    //Way 1
+    FileStorage fs_1;
+    fs_1.open("/Users/chad_ding/Desktop/Machine_Vision/OpenCV/OpenCV_Core/test.xml", FileStorage::WRITE);
+    fs_1.release();
+    //way 2
+    FileStorage fs_2("/Users/chad_ding/Desktop/Machine_Vision/OpenCV/OpenCV_Core/test.xml",FileStorage::WRITE | FileStorage::READ);
     
-    waitKey(0);
+    //FileStorage::FileStorage();
+    //! the full constructor that opens file storage for reading or writing
+    //FileStorage(const string& source, int flags, const string& encoding=string());
+    //FileStorage::WRITE  写文件
+    //FileStorage::READ   读文件
+    fs_2 << "iterationNr" << 100;
+    int itNr;
+    fs_2["iterationNr"] >> itNr;
+    //itNr = (int) fs_2["iterationNr"];
+    
+    Mat R = Mat_<uchar>::eye(3, 3);
+    Mat T = Mat_<double>::zeros(3, 1);
+    //cout << T << endl;
+    //cout << R << endl;
+    //写入数据
+    fs_2 << "R" << R;
+    fs_2 << "T" << T;
+    //读取数据
+    fs_2["R"] >> R;
+    fs_2["T"] >> T;
+    //cout << T << endl;
+    //cout << R << endl;
+    //vector 和 maps 的输入和输出
+    fs_2 << "string" << "[";
+    fs_2 << "image1.jpg" << "Awesomeness" << "baboon.jpg";
+    fs_2 << "]";
+    
+    fs_2 << "Mapping";
+    fs_2 << "{" << "One" << 1;
+    fs_2 << "Two" << 2 << "}";
+    fs_2.release();
+    
+    //YAMLFILEWrite();
+    YAMLRead();
+    //waitKey(0);
+    
     return 0;
 }
 
@@ -173,4 +220,79 @@ void colorReduce_DynamicAddress(Mat InputImage, Mat OutputImage, int div)
         }
     }
     imshow("Reduce Image using dynamic address", OutputImage);
+}
+
+void YAMLFILEWrite()
+{
+    //初始化
+    FileStorage fs("/Users/chad_ding/Desktop/Machine_Vision/OpenCV/OpenCV_Core/test.yaml",FileStorage::WRITE);
+    
+    //写入文件
+    fs << "frameCount" << 5;
+    time_t rawtime;
+    time(&rawtime);
+    fs << "CalibrationDate" << asctime(localtime(&rawtime));
+    //定义矩阵
+    Mat cameraMatrix = (Mat_<double>(3, 3) << 1000,0,320,0,1000,240,0,0,1);
+    Mat distCoeffs = (Mat_<double>(5, 1) << 0.1,0.01,-0.001,0,0);
+    // YAML写入方式
+    fs << "camaraMatrix" << cameraMatrix << "distCoeffs" << distCoeffs;
+    fs << "features" << "[";
+    for (int i=0; i<3;i++)
+    {
+        int x = rand()%640;
+        int y = rand()%480;
+        uchar lbp = rand() % 256;
+        
+        fs << "{:" << "x" << x << "y" << y << "lbp" << "[:";
+        for (int j =0;j<8;j++)
+        {
+            fs << ((lbp >> j) & 1);
+        }
+        fs << "]" << "}";
+    }
+    fs << "]";
+    fs.release();
+    
+    cout << "Over" << endl;
+}
+
+void YAMLRead()
+{
+    system("color 6F");
+    
+    FileStorage fs("/Users/chad_ding/Desktop/Machine_Vision/OpenCV/OpenCV_Core/test.yaml",FileStorage::READ);
+    // 读取方式1
+    int framecount = (int) fs["frameCount"];
+    // 读取方式2
+    std::string date;
+    fs["CalibrationDate"] >> date;
+    // 数组读取方式
+    Mat cameraMatrix,distCoeffs;
+    fs["camaraMatrix"] >> cameraMatrix;
+    fs["distCoeffs"] >> distCoeffs;
+    // 打印读取信息
+    cout << "frameCount: " << framecount << endl;
+    cout << "CalibrationDate: " << date << endl;
+    cout << "camaraMatrix" << cameraMatrix << endl;
+    cout << "distCoeffs: " << distCoeffs << endl;
+    
+    FileNode features = fs["features"];
+    FileNodeIterator it = features.begin(), itend = features.end();
+    int idx = 0;
+    std::vector<uchar> lbpval;
+    //遍历序列
+    for (; it != itend; ++it,idx++)
+    {
+        cout << "feature #" << idx << ":" << endl;
+        cout << "x=" << (int)(*it)["x"] << ", y=" << (int)(*it)["y"] << ",lbp: (";
+        
+        (*it)["lbp"] >> lbpval;
+        for(int i =0; i< (int)lbpval.size();i++)
+        {
+            cout << " " << (int)lbpval[i];
+        }
+        cout << ")" << endl;
+    }
+    fs.release();
 }
